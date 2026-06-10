@@ -7,6 +7,7 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.util.Iterator;
+import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 
 public class ChatClient {
@@ -31,10 +32,10 @@ public class ChatClient {
         // streaming RPC
         Iterator<HelloResponse> responses = stub.streamGreetings(request);
 
-        while (responses.hasNext()) {
-            HelloResponse response = responses.next();
-            System.out.println(response.getMessage());
-        }
+//        while (responses.hasNext()) {
+//            HelloResponse response = responses.next();
+//            System.out.println(response.getMessage());
+//        }
 
 //        Client Streaming RPC
 
@@ -77,6 +78,7 @@ public class ChatClient {
 
  */
 
+
         StreamObserver<ChatMessage> responseObserver = new StreamObserver<>(){
             @Override
             public void onNext(ChatMessage message){
@@ -95,11 +97,12 @@ public class ChatClient {
             }
         };
 
+
         // start the chat stream
         StreamObserver<ChatMessage> requestObserver = asyncStub.chat(responseObserver);
 
         // send chat messages
-        requestObserver.onNext(
+/*        requestObserver.onNext(
                 ChatMessage.newBuilder()
                         .setSender("Jack")
                         .setContent("Hello, chat!")
@@ -117,6 +120,34 @@ public class ChatClient {
                         .setContent("this is 3rd message!")
                         .build()
         );
+ */
+
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Enter username: ");
+        String username = scanner.nextLine();
+
+        requestObserver.onNext(
+                ChatMessage.newBuilder()
+                        .setSender(username)
+                        .setType(MessageType.JOIN)
+                        .build()
+        );
+
+        while(true){
+            String input = scanner.nextLine();
+            if("exit".equalsIgnoreCase(input)){
+                requestObserver.onCompleted();
+                break;
+            }
+
+            requestObserver.onNext(
+                    ChatMessage.newBuilder()
+                            .setSender(username)
+                            .setType(MessageType.CHAT)
+                            .setContent(input)
+                            .build()
+            );
+        }
 
         requestObserver.onCompleted();
 

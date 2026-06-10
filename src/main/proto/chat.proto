@@ -37,4 +37,11 @@ message SumResponse {
 message ChatMessage{
     string sender = 1;
     string content = 2;
+    MessageType type = 3;
+}
+
+enum MessageType{
+    JOIN = 0;
+    CHAT = 1;
+    LEAVE = 2;
 }

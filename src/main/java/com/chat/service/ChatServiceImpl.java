@@ -4,6 +4,8 @@ import com.chat.grpc.*;
 import com.chat.grpc.Number;
 import io.grpc.stub.StreamObserver;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
     @Override
@@ -70,30 +72,48 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
         return new StreamObserver<>(){
 
+            private String username;
+
             @Override
             public void onNext(ChatMessage message){
-                System.out.println(message.getSender()+": "+message.getContent());
 
-                // Echo the message back to the client
-                ChatMessage response = ChatMessage.newBuilder()
-                        .setSender("Server")
-                        .setContent("Echo: " +message.getContent())
-                        .build();
+                if(message.getType() == MessageType.JOIN){
+                    username = message.getSender();
+                    clients.put(username, responseObserver);
 
-                responseObserver.onNext(response);
+                    System.out.println(username + " joined. Total clients: " + clients.size());
+                    return;
+                }
+                if(message.getType() == MessageType.CHAT){
+                    System.out.println(message.getSender() + ": " + message.getContent());
+
+                    for(StreamObserver<ChatMessage> observer: clients.values()){
+                        observer.onNext(message);
+                    }
+                }
             }
 
             @Override
             public void onError(Throwable throwable){
-                System.err.println("Chat Error: "+throwable.getMessage());
+                if(username != null){
+                    clients.remove(username);
+                    System.out.println(username + " disconnected: " + throwable.getMessage());
+                }
             }
 
             @Override
             public void onCompleted(){
-                System.out.println("Chat completed");
+                if(username != null){
+                    clients.remove(username);
+                    System.out.println(username + " left");
+                }
                 responseObserver.onCompleted();
             }
         };
     }
+
+    private final ConcurrentHashMap<String, StreamObserver<ChatMessage>> clients =
+            new ConcurrentHashMap<>();
+
 
 }
