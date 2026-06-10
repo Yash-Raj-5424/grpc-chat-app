@@ -1,10 +1,7 @@
 package com.chat.client;
 
-import com.chat.grpc.ChatServiceGrpc;
-import com.chat.grpc.HelloRequest;
-import com.chat.grpc.HelloResponse;
+import com.chat.grpc.*;
 import com.chat.grpc.Number;
-import com.chat.grpc.SumResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
@@ -44,8 +41,8 @@ public class ChatClient {
         ChatServiceGrpc.ChatServiceStub asyncStub = ChatServiceGrpc.newStub(channel);
 
         CountDownLatch latch = new CountDownLatch(1); // to wait until the response has arrived
-        StreamObserver<SumResponse> responseObserver = new StreamObserver<>() {
-
+//        StreamObserver<SumResponse> responseObserver = new StreamObserver<>() {
+/*
             @Override
             public void onNext(SumResponse response){
                 System.out.println("Sum: " + response.getSum());
@@ -77,6 +74,49 @@ public class ChatClient {
 
             Thread.sleep(500); // Simulate delay
         }
+
+ */
+
+        StreamObserver<ChatMessage> responseObserver = new StreamObserver<>(){
+            @Override
+            public void onNext(ChatMessage message){
+                System.out.println(message.getSender() + ": " + message.getContent());
+            }
+
+            @Override
+            public void onError(Throwable throwable){
+                latch.countDown();
+            }
+
+            @Override
+            public void onCompleted(){
+                System.out.println("Chat ended");
+                latch.countDown();
+            }
+        };
+
+        // start the chat stream
+        StreamObserver<ChatMessage> requestObserver = asyncStub.chat(responseObserver);
+
+        // send chat messages
+        requestObserver.onNext(
+                ChatMessage.newBuilder()
+                        .setSender("Jack")
+                        .setContent("Hello, chat!")
+                        .build()
+        );
+        requestObserver.onNext(
+                ChatMessage.newBuilder()
+                        .setSender("Jack")
+                        .setContent("How are you?")
+                        .build()
+        );
+        requestObserver.onNext(
+                ChatMessage.newBuilder()
+                        .setSender("Jack")
+                        .setContent("this is 3rd message!")
+                        .build()
+        );
 
         requestObserver.onCompleted();
 

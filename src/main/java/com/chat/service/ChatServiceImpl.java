@@ -1,11 +1,8 @@
 package com.chat.service;
 
-import com.chat.grpc.ChatServiceGrpc;
-import com.chat.grpc.HelloRequest;
-import com.chat.grpc.HelloResponse;
-import com.chat.grpc.SumResponse;
-import io.grpc.stub.StreamObserver;
+import com.chat.grpc.*;
 import com.chat.grpc.Number;
+import io.grpc.stub.StreamObserver;
 
 public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
@@ -63,6 +60,37 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                         .setSum(sum)
                         .build();
                 responseObserver.onNext(response);
+                responseObserver.onCompleted();
+            }
+        };
+    }
+
+    @Override
+    public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessage> responseObserver){
+
+        return new StreamObserver<>(){
+
+            @Override
+            public void onNext(ChatMessage message){
+                System.out.println(message.getSender()+": "+message.getContent());
+
+                // Echo the message back to the client
+                ChatMessage response = ChatMessage.newBuilder()
+                        .setSender("Server")
+                        .setContent("Echo: " +message.getContent())
+                        .build();
+
+                responseObserver.onNext(response);
+            }
+
+            @Override
+            public void onError(Throwable throwable){
+                System.err.println("Chat Error: "+throwable.getMessage());
+            }
+
+            @Override
+            public void onCompleted(){
+                System.out.println("Chat completed");
                 responseObserver.onCompleted();
             }
         };
