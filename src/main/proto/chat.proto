@@ -6,6 +6,8 @@ option java_outer_classname = "ChatProto";
 
 service ChatService {
   rpc SayHello(HelloRequest) returns (HelloResponse);
+
+  rpc StreamGreetings(HelloRequest) returns (stream HelloResponse);
 }
 
 message HelloRequest {

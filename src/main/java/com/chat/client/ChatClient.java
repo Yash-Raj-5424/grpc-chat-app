@@ -6,6 +6,8 @@ import com.chat.grpc.HelloResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
+import java.util.Iterator;
+
 public class ChatClient {
 
     public static void main(String[] args) {
@@ -21,9 +23,17 @@ public class ChatClient {
                 .setName("Jack")
                 .build();
 
-        HelloResponse response = stub.sayHello(request);
+        // unary RPC
+//        HelloResponse response = stub.sayHello(request);
+//        System.out.println(response.getMessage());
 
-        System.out.println(response.getMessage());
+        // streaming RPC
+        Iterator<HelloResponse> responses = stub.streamGreetings(request);
+        
+        while (responses.hasNext()) {
+            HelloResponse response = responses.next();
+            System.out.println(response.getMessage());
+        }
 
         channel.shutdown();
     }
