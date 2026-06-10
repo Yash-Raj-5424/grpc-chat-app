@@ -17,5 +17,8 @@ public class ChatServer {
         server.start();
         System.out.println("gRPC server started on port 9090");
         server.awaitTermination();
+
+
+
     }
 }

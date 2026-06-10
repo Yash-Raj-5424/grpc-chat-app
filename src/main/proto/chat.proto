@@ -5,9 +5,14 @@ option java_package = "com.chat.grpc";
 option java_outer_classname = "ChatProto";
 
 service ChatService {
-  rpc SayHello(HelloRequest) returns (HelloResponse);
+  rpc SayHello(HelloRequest)
+    returns (HelloResponse);
 
-  rpc StreamGreetings(HelloRequest) returns (stream HelloResponse);
+  rpc StreamGreetings(HelloRequest)
+    returns (stream HelloResponse);
+
+  rpc CalculateSum(stream Number)
+      returns (SumResponse);
 }
 
 message HelloRequest {
@@ -16,4 +21,12 @@ message HelloRequest {
 
 message HelloResponse {
   string message = 1;
+}
+
+message Number {
+  int32 value = 1;
+}
+
+message SumResponse {
+  int32 sum = 1;
 }
