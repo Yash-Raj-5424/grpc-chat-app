@@ -85,9 +85,22 @@ public class ChatClient {
  */
 
 
+        AtomicReference<String> username = new AtomicReference<>();
         StreamObserver<ChatMessage> responseObserver = new StreamObserver<>(){
             @Override
             public void onNext(ChatMessage message){
+
+                if(message.getType() == MessageType.PRIVATE){   // for private msg
+                    if(message.getSender().equals(username.get())){
+                        System.out.println("[PRIVATE To " + message.getRecipient() + " ]: " +
+                                message.getContent());
+                    }else{
+                        System.out.println("[PRIVATE] " + message.getSender() + ": " +
+                                message.getContent());
+                    }
+                    return;
+                }
+
                 System.out.println(message.getSender() + ": " + message.getContent());
             }
 
@@ -131,12 +144,12 @@ public class ChatClient {
  */
 
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter your username:");
-        String username = scanner.nextLine();
+        System.out.println("Enter username:");
+        username.set(scanner.nextLine());
 
         requestObserver.onNext(
                 ChatMessage.newBuilder()
-                        .setSender(username)
+                        .setSender(username.get())
                         .setType(MessageType.JOIN)
                         .setContent(username + " has joined the chat")
                         .build()
@@ -149,9 +162,32 @@ public class ChatClient {
                 break;
             }
 
+            // private message
+            if(input.startsWith("@")){
+                int firstSpace = input.indexOf(' ');
+                if(firstSpace == -1){
+                    System.out.println("Invalid private message format. Use: @username message");
+                    continue;
+                }
+
+                String recipient = input.substring(1, firstSpace);
+                String content = input.substring(firstSpace + 1);
+
+                requestObserver.onNext(
+                        ChatMessage.newBuilder()
+                                .setSender(username.get())
+                                .setRecipient(recipient)
+                                .setType(MessageType.PRIVATE)
+                                .setContent(content)
+                                .build()
+                );
+                continue;
+            }
+
+            // broadcast message to everyone
             requestObserver.onNext(
                     ChatMessage.newBuilder()
-                            .setSender(username)
+                            .setSender(username.get())
                             .setType(MessageType.CHAT)
                             .setContent(input)
                             .build()

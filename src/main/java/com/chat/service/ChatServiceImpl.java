@@ -116,12 +116,38 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                     }
                     return;
                 }
-                if(message.getType() == MessageType.CHAT){
+
+                if(message.getType() == MessageType.CHAT){  // broadcast messaging
                     System.out.println(message.getSender() + ": " + message.getContent());
 
                     for(StreamObserver<ChatMessage> observer: clients.values()){
                         observer.onNext(message);
                     }
+                }
+
+                // private messaging
+                if(message.getType() == MessageType.PRIVATE){
+                    String recipient = message.getRecipient();
+                    StreamObserver<ChatMessage> recipientObserver = clients.get(recipient);
+
+                    if(recipientObserver == null){
+                        responseObserver.onNext(
+                                ChatMessage.newBuilder()
+                                        .setSender("System")
+                                        .setType(MessageType.SYSTEM)
+                                        .setContent("User '" + recipient + "' not found")
+                                        .build()
+                        );
+                        return;
+                    }
+                    System.out.println("[PRIVATE to " + recipient + "] " + message.getSender() + ": "
+                            + message.getContent());
+
+                    recipientObserver.onNext(message);  // private msg to the recipient
+
+                    responseObserver.onNext(message);   // confirmation to the sender
+
+                    return;
                 }
             }
 

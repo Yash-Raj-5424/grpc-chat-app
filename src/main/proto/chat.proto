@@ -38,6 +38,7 @@ message ChatMessage{
     string sender = 1;
     string content = 2;
     MessageType type = 3;
+    string recipient = 4;
 }
 
 enum MessageType{
@@ -45,4 +46,5 @@ enum MessageType{
     CHAT = 1;
     LEAVE = 2;
     SYSTEM = 3;
+    PRIVATE = 4;
 }
