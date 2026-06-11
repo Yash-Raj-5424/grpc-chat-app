@@ -81,7 +81,19 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                     username = message.getSender();
                     clients.put(username, responseObserver);
 
-                    System.out.println(username + " joined. Total clients: " + clients.size());
+                    System.out.println(username + " joined");
+
+                    ChatMessage joinNotification = ChatMessage.newBuilder()
+                            .setType(MessageType.JOIN)
+                            .setSender(username)
+                            .setContent("------ " + username + " joined the chat -------")
+                            .build();
+
+                    for(var entry: clients.entrySet()){ // broadcast join notification to others
+                        if(!entry.getKey().equals(username)){
+                            entry.getValue().onNext(joinNotification);
+                        }
+                    }
                     return;
                 }
                 if(message.getType() == MessageType.CHAT){
@@ -107,6 +119,19 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                     clients.remove(username);
                     System.out.println(username + " left");
                 }
+
+                ChatMessage leaveNotification = ChatMessage.newBuilder()
+                        .setType(MessageType.LEAVE)
+                        .setSender(username)
+                        .setContent("------ " + username + " left the chat -------")
+                        .build();
+
+                for(var entry: clients.entrySet()){ // broadcast leave notification to others
+                    if(!entry.getKey().equals(username)) {
+                        entry.getValue().onNext(leaveNotification);
+                    }
+                }
+
                 responseObserver.onCompleted();
             }
         };

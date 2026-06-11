@@ -149,8 +149,6 @@ public class ChatClient {
             );
         }
 
-        requestObserver.onCompleted();
-
         latch.await(); //wait until the response has arrived then shutdown
         channel.shutdown();
     }
