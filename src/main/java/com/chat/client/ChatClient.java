@@ -9,6 +9,8 @@ import io.grpc.stub.StreamObserver;
 import java.util.Iterator;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ChatClient {
 
@@ -42,6 +44,10 @@ public class ChatClient {
         ChatServiceGrpc.ChatServiceStub asyncStub = ChatServiceGrpc.newStub(channel);
 
         CountDownLatch latch = new CountDownLatch(1); // to wait until the response has arrived
+        CountDownLatch joinLatch = new CountDownLatch(1); // to wait until the user has joined the chat
+        AtomicBoolean joined = new AtomicBoolean(false); // to track if the user has joined the chat
+        AtomicBoolean chatActive = new AtomicBoolean(true);
+
 //        StreamObserver<SumResponse> responseObserver = new StreamObserver<>() {
 /*
             @Override
@@ -87,12 +93,14 @@ public class ChatClient {
 
             @Override
             public void onError(Throwable throwable){
+                chatActive.set(false);
                 latch.countDown();
             }
 
             @Override
             public void onCompleted(){
                 System.out.println("Chat ended");
+                chatActive.set(false);
                 latch.countDown();
             }
         };
@@ -123,17 +131,18 @@ public class ChatClient {
  */
 
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter username: ");
+        System.out.println("Enter your username:");
         String username = scanner.nextLine();
 
         requestObserver.onNext(
                 ChatMessage.newBuilder()
                         .setSender(username)
                         .setType(MessageType.JOIN)
+                        .setContent(username + " has joined the chat")
                         .build()
         );
 
-        while(true){
+        while(chatActive.get()){
             String input = scanner.nextLine();
             if("exit".equalsIgnoreCase(input)){
                 requestObserver.onCompleted();

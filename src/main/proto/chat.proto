@@ -44,4 +44,5 @@ enum MessageType{
     JOIN = 0;
     CHAT = 1;
     LEAVE = 2;
+    SYSTEM = 3;
 }

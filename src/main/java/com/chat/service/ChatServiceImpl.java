@@ -79,7 +79,27 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
                 if(message.getType() == MessageType.JOIN){
                     username = message.getSender();
-                    clients.put(username, responseObserver);
+
+                    StreamObserver<ChatMessage> existing = clients.putIfAbsent(username, responseObserver);
+                    if(existing != null){   // prevent duplicate usernames
+                        responseObserver.onNext(
+                                ChatMessage.newBuilder()
+                                        .setSender("System")
+                                        .setType(MessageType.SYSTEM)
+                                        .setContent("Username: '" + username + "' is already taken. Reconnect and try a different one.")
+                                        .build()
+                        );
+                        responseObserver.onCompleted(); // close the stream
+                        return;
+                    }
+
+                    responseObserver.onNext(    // client sees join success
+                            ChatMessage.newBuilder()
+                                    .setSender("System")
+                                    .setType(MessageType.SYSTEM)
+                                    .setContent("JOIN_SUCCESS")
+                                    .build()
+                    );
 
                     System.out.println(username + " joined");
 
