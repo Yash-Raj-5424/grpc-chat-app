@@ -39,6 +39,7 @@ message ChatMessage{
     string content = 2;
     MessageType type = 3;
     string recipient = 4;
+    string room = 5;
 }
 
 enum MessageType{
@@ -47,4 +48,8 @@ enum MessageType{
     LEAVE = 2;
     SYSTEM = 3;
     PRIVATE = 4;
+
+    ROOM_JOIN = 5;
+    ROOM_LEAVE = 6;
+    ROOM_CHAT = 7;
 }

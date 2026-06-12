@@ -8,6 +8,8 @@ import io.grpc.stub.StreamObserver;
 
 import java.util.Iterator;
 import java.util.Scanner;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,18 +23,18 @@ public class ChatClient {
                 .usePlaintext()
                 .build();
 
-        ChatServiceGrpc.ChatServiceBlockingStub stub = ChatServiceGrpc.newBlockingStub(channel);
+//        ChatServiceGrpc.ChatServiceBlockingStub stub = ChatServiceGrpc.newBlockingStub(channel);
 
-        HelloRequest request = HelloRequest.newBuilder()
-                .setName("Jack")
-                .build();
+//        HelloRequest request = HelloRequest.newBuilder()
+//                .setName("Jack")
+//                .build();
 
         // unary RPC
 //        HelloResponse response = stub.sayHello(request);
 //        System.out.println(response.getMessage());
 
         // streaming RPC
-        Iterator<HelloResponse> responses = stub.streamGreetings(request);
+//        Iterator<HelloResponse> responses = stub.streamGreetings(request);
 
 //        while (responses.hasNext()) {
 //            HelloResponse response = responses.next();
@@ -86,6 +88,9 @@ public class ChatClient {
 
 
         AtomicReference<String> username = new AtomicReference<>();
+        AtomicReference<String> activeRoom = new AtomicReference<>();
+        Set<String> myRooms = ConcurrentHashMap.newKeySet();
+
         StreamObserver<ChatMessage> responseObserver = new StreamObserver<>(){
             @Override
             public void onNext(ChatMessage message){
@@ -160,6 +165,58 @@ public class ChatClient {
             if("exit".equalsIgnoreCase(input)){
                 requestObserver.onCompleted();
                 break;
+            }
+
+            // join room
+            if(input.startsWith("/join ")){
+                String roomName = input.substring(6).trim();
+                requestObserver.onNext(
+                        ChatMessage.newBuilder()
+                                .setSender(username.get())
+                                .setRoom(roomName)
+                                .setType(MessageType.ROOM_JOIN)
+                                .build()
+                );
+                myRooms.add(roomName);
+                continue;
+            }
+
+            // switch room
+            if(input.startsWith("/switch ")){
+                String roomName = input.substring(8).trim();
+
+                if(!myRooms.contains(roomName)){
+                    System.out.println("You are not a member of room: " + roomName);
+                    continue;
+                }
+
+                activeRoom.set(roomName);
+                System.out.println("Switched to room: " + roomName);
+                continue;
+            }
+
+            // current room
+            if(input.equals("/current")){
+                System.out.println("Active room: "
+                        + (activeRoom.get() != null ? activeRoom.get() : "None"));
+                continue;
+            }
+
+            // leave room
+            if(input.startsWith("/leave ")){
+                String roomName = input.substring(7).trim();
+                requestObserver.onNext(
+                        ChatMessage.newBuilder()
+                                .setSender(username.get())
+                                .setRoom(roomName)
+                                .setType(MessageType.ROOM_LEAVE)
+                                .build()
+                );
+                myRooms.remove(roomName);
+                if(roomName.equals(activeRoom.get())){
+                    activeRoom.set(null);
+                }
+                continue;
             }
 
             // private message

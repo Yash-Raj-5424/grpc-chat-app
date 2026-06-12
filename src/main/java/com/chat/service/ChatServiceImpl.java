@@ -4,9 +4,13 @@ import com.chat.grpc.*;
 import com.chat.grpc.Number;
 import io.grpc.stub.StreamObserver;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
+
+    private final ConcurrentHashMap<String, Set<String>> rooms = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Set<String>> userRooms = new ConcurrentHashMap<>();
 
     @Override
     public void sayHello(HelloRequest request, StreamObserver<HelloResponse> responseObserver){
@@ -117,6 +121,83 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                     return;
                 }
 
+                // room join
+                if(message.getType() == MessageType.ROOM_JOIN){
+                    String room = message.getRoom();
+
+                    // room name validation
+                    if(room.contains(" ")){
+                        System.out.println("Invalid room name: '" + room + "'. Room names cannot contain spaces");
+                        responseObserver.onNext(
+                                ChatMessage.newBuilder()
+                                        .setSender("System")
+                                        .setType(MessageType.SYSTEM)
+                                        .setContent("Invalid room name: '" + room + "'. Room names cannot contain spaces")
+                                        .build()
+                        );
+                        return;
+                    }
+
+                    rooms.computeIfAbsent(room, k -> ConcurrentHashMap.newKeySet()).add(username);
+                    userRooms.computeIfAbsent(username, k -> ConcurrentHashMap.newKeySet()).add(room);
+
+                    System.out.println(username + " joined room: " + room);
+
+                    responseObserver.onNext(
+                            ChatMessage.newBuilder()
+                                    .setSender("System")
+                                    .setType(MessageType.SYSTEM)
+                                    .setContent("Joined room: '" + room + "'")
+                                    .build()
+                    );
+                    return;
+                }
+
+                // room leave
+                if(message.getType() == MessageType.ROOM_LEAVE){
+
+                    String room = message.getRoom();
+                    Set<String> roomMembers = rooms.get(room);
+                    Set<String> joinedRooms = userRooms.get(username);
+
+                    if(joinedRooms == null || !joinedRooms.contains(room)){
+                        responseObserver.onNext(
+                                ChatMessage.newBuilder()
+                                        .setSender("System")
+                                        .setType(MessageType.SYSTEM)
+                                        .setContent("You are not in room: '" + room + "'")
+                                        .build()
+                        );
+                        return;
+                    }
+
+                    if(roomMembers != null){
+                        roomMembers.remove(username);
+                        if(roomMembers.isEmpty()){
+                            rooms.remove(room); // remove the empty room
+                        }
+                    }
+
+                    if(joinedRooms != null){
+                        joinedRooms.remove(room);
+                        if(joinedRooms.isEmpty()){
+                            userRooms.remove(username);
+                        }
+                    }
+
+
+                    System.out.println(username + " left room: '" + room + "'");
+
+                    responseObserver.onNext(
+                            ChatMessage.newBuilder()
+                                    .setSender("System")
+                                    .setType(MessageType.SYSTEM)
+                                    .setContent("Left room: '" + room + "'")
+                                    .build()
+                    );
+                    return;
+                }
+
                 if(message.getType() == MessageType.CHAT){  // broadcast messaging
                     System.out.println(message.getSender() + ": " + message.getContent());
 
@@ -163,6 +244,21 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             public void onCompleted(){
                 if(username != null){
                     clients.remove(username);
+
+                    Set<String> joinedRooms = userRooms.remove(username);
+
+                    if(joinedRooms != null){
+                        for(String room: joinedRooms){
+                            Set<String> roomMembers = rooms.get(room);
+                            if(roomMembers != null){
+                                roomMembers.remove(username);
+                                if(roomMembers.isEmpty()){
+                                    rooms.remove(room); // remove the empty room
+                                }
+                            }
+                        }
+                    }
+
                     System.out.println(username + " left");
                 }
 
