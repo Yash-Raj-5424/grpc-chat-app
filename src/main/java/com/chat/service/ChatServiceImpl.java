@@ -12,64 +12,64 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
     private final ConcurrentHashMap<String, Set<String>> rooms = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> userRooms = new ConcurrentHashMap<>();
 
-    @Override
-    public void sayHello(HelloRequest request, StreamObserver<HelloResponse> responseObserver){
-
-        String name = request.getName();
-        HelloResponse response = HelloResponse.newBuilder()
-                .setMessage("Hello, " + name + "!")
-                .build();
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void streamGreetings(HelloRequest request, StreamObserver<HelloResponse> responseObserver){
-
-        String name = request.getName();
-        for (int i = 1; i <= 5; i++) {
-            HelloResponse response = HelloResponse.newBuilder()
-                    .setMessage("Greeting " + i + " for " + name)
-                    .build();
-            responseObserver.onNext(response);
-            try {
-                Thread.sleep(1000); // Simulate delay
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public StreamObserver<Number> calculateSum(StreamObserver<SumResponse> responseObserver){
-
-        return new StreamObserver<Number>() {
-            int sum = 0;
-
-            @Override
-            public void onNext(Number number) {
-                sum += number.getValue();
-                System.out.println("Received: " + number.getValue());
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                System.err.println("Client Error: " + throwable.getMessage());
-            }
-
-            @Override
-            public void onCompleted() {
-                SumResponse response = SumResponse.newBuilder()
-                        .setSum(sum)
-                        .build();
-                responseObserver.onNext(response);
-                responseObserver.onCompleted();
-            }
-        };
-    }
+//    @Override
+//    public void sayHello(HelloRequest request, StreamObserver<HelloResponse> responseObserver){
+//
+//        String name = request.getName();
+//        HelloResponse response = HelloResponse.newBuilder()
+//                .setMessage("Hello, " + name + "!")
+//                .build();
+//
+//        responseObserver.onNext(response);
+//        responseObserver.onCompleted();
+//    }
+//
+//    @Override
+//    public void streamGreetings(HelloRequest request, StreamObserver<HelloResponse> responseObserver){
+//
+//        String name = request.getName();
+//        for (int i = 1; i <= 5; i++) {
+//            HelloResponse response = HelloResponse.newBuilder()
+//                    .setMessage("Greeting " + i + " for " + name)
+//                    .build();
+//            responseObserver.onNext(response);
+//            try {
+//                Thread.sleep(1000); // Simulate delay
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//            }
+//        }
+//
+//        responseObserver.onCompleted();
+//    }
+//
+//    @Override
+//    public StreamObserver<Number> calculateSum(StreamObserver<SumResponse> responseObserver){
+//
+//        return new StreamObserver<Number>() {
+//            int sum = 0;
+//
+//            @Override
+//            public void onNext(Number number) {
+//                sum += number.getValue();
+//                System.out.println("Received: " + number.getValue());
+//            }
+//
+//            @Override
+//            public void onError(Throwable throwable) {
+//                System.err.println("Client Error: " + throwable.getMessage());
+//            }
+//
+//            @Override
+//            public void onCompleted() {
+//                SumResponse response = SumResponse.newBuilder()
+//                        .setSum(sum)
+//                        .build();
+//                responseObserver.onNext(response);
+//                responseObserver.onCompleted();
+//            }
+//        };
+//    }
 
     @Override
     public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessage> responseObserver){
@@ -198,6 +198,35 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                     return;
                 }
 
+                // room chat
+                if(message.getType() == MessageType.ROOM_CHAT){
+                    String room = message.getRoom();
+                    Set<String> roomMembers = rooms.get(room);
+
+                    if(roomMembers == null){
+                        responseObserver.onNext(
+                                ChatMessage.newBuilder()
+                                        .setSender("System")
+                                        .setType(MessageType.SYSTEM)
+                                        .setContent("Room '" + room + "' does not exist")
+                                        .build()
+                        );
+                        return;
+                    }
+
+                    System.out.println("[ROOM: " + room + "] "
+                            + message.getSender() + ": " + message.getContent());
+
+                    for(String member: roomMembers){
+                        StreamObserver<ChatMessage> observer = clients.get(member);
+                        if(observer != null){
+                            observer.onNext(message);
+                        }
+                    }
+                    return;
+                }
+
+                // global chat
                 if(message.getType() == MessageType.CHAT){  // broadcast messaging
                     System.out.println(message.getSender() + ": " + message.getContent());
 

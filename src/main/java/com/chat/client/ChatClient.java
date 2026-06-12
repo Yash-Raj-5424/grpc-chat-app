@@ -106,6 +106,14 @@ public class ChatClient {
                     return;
                 }
 
+                // room chat
+                if(message.getType() == MessageType.ROOM_CHAT){
+                    System.out.println("[" + message.getRoom() + "] " + message.getSender() + ": " +
+                            message.getContent());
+                    return;
+                }
+
+                // global chat
                 System.out.println(message.getSender() + ": " + message.getContent());
             }
 
@@ -241,14 +249,53 @@ public class ChatClient {
                 continue;
             }
 
+            // room message
+            if(input.startsWith("#")){
+                int firstSpace = input.indexOf(' ');
+                if(firstSpace == -1){
+                    System.out.println("Invalid room message format. Use: #roomname message");
+                    continue;
+                }
+
+                String roomName = input.substring(1, firstSpace);
+                String content = input.substring(firstSpace + 1);
+
+                if(!myRooms.contains(roomName)){
+                    System.out.println("You are not a member of room: " + roomName);
+                    continue;
+                }
+
+                requestObserver.onNext(
+                        ChatMessage.newBuilder()
+                                .setSender(username.get())
+                                .setRoom(roomName)
+                                .setType(MessageType.ROOM_CHAT)
+                                .setContent(content)
+                                .build()
+                );
+                continue;
+            }
+
             // broadcast message to everyone
-            requestObserver.onNext(
-                    ChatMessage.newBuilder()
-                            .setSender(username.get())
-                            .setType(MessageType.CHAT)
-                            .setContent(input)
-                            .build()
-            );
+            if(activeRoom.get() != null) {
+                requestObserver.onNext(
+                        ChatMessage.newBuilder()
+                                .setSender(username.get())
+                                .setRoom(activeRoom.get())
+                                .setType(MessageType.ROOM_CHAT)
+                                .setContent(input)
+                                .build()
+                );
+            }
+            else{
+                requestObserver.onNext(
+                        ChatMessage.newBuilder()
+                                .setSender(username.get())
+                                .setType(MessageType.CHAT)
+                                .setContent(input)
+                                .build()
+                );
+            }
         }
 
         latch.await(); //wait until the response has arrived then shutdown
