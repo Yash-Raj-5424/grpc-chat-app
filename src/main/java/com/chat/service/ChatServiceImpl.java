@@ -14,9 +14,9 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             new ConcurrentHashMap<>();
 
     @Override
-    public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessage> responseObserver) {
+    public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessage> responseObserver){
 
-        return new StreamObserver<>() {
+        return new StreamObserver<>(){
 
             private String username;
 
@@ -146,7 +146,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
         for (String member : roomMembers){
             StreamObserver<ChatMessage> observer = clients.get(member);
             if (observer != null) {
-                observer.onNext(message);
+                send(member, observer, message);
             }
         }
     }
@@ -154,8 +154,8 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
     private void handleGlobalChat(ChatMessage message){  // broadcast messaging
         System.out.println(message.getSender() + ": " + message.getContent());
 
-        for (StreamObserver<ChatMessage> observer : clients.values()){
-            observer.onNext(message);
+        for (var entry : clients.entrySet()){
+            send(entry.getKey(), entry.getValue(), message);
         }
     }
 
@@ -174,8 +174,22 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
         System.out.println("[PRIVATE to " + recipient + "] " + message.getSender() + ": "
                 + message.getContent());
 
-        recipientObserver.onNext(message);  // private msg to the recipient
+        send(recipient, recipientObserver, message);  // private msg to the recipient
         responseObserver.onNext(message);   // confirmation to the sender
+    }
+
+    private void send(
+            String username,
+            StreamObserver<ChatMessage> observer,
+            ChatMessage message
+    ){
+        try {
+            observer.onNext(message);
+        } catch (Exception e) {
+            clients.remove(username);
+            userRooms.remove(username);
+            System.out.println(username + " dropped: " + e.getMessage());
+        }
     }
 
     private void sendSystem(
@@ -194,7 +208,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
     private void broadcastToOthers(ChatMessage message, String sender){
         for (var entry : clients.entrySet()){
             if (!entry.getKey().equals(sender)){
-                entry.getValue().onNext(message);
+                send(entry.getKey(), entry.getValue(), message);
             }
         }
     }
