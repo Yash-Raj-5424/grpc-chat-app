@@ -98,7 +98,6 @@ public class ChatClient {
                 String roomName = input.substring(6).trim();
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
-                                .setSender(username.get())
                                 .setRoom(roomName)
                                 .setType(MessageType.ROOM_JOIN)
                                 .build()
@@ -133,7 +132,6 @@ public class ChatClient {
                 String roomName = input.substring(7).trim();
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
-                                .setSender(username.get())
                                 .setRoom(roomName)
                                 .setType(MessageType.ROOM_LEAVE)
                                 .build()
@@ -158,7 +156,6 @@ public class ChatClient {
 
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
-                                .setSender(username.get())
                                 .setRecipient(recipient)
                                 .setType(MessageType.PRIVATE)
                                 .setContent(content)
@@ -185,7 +182,6 @@ public class ChatClient {
 
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
-                                .setSender(username.get())
                                 .setRoom(roomName)
                                 .setType(MessageType.ROOM_CHAT)
                                 .setContent(content)
@@ -194,11 +190,10 @@ public class ChatClient {
                 continue;
             }
 
-            // broadcast message to everyone
+            // attatch the sender by server not the client (for both room n normal chat)
             if(activeRoom.get() != null) {
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
-                                .setSender(username.get())
                                 .setRoom(activeRoom.get())
                                 .setType(MessageType.ROOM_CHAT)
                                 .setContent(input)
@@ -208,7 +203,6 @@ public class ChatClient {
             else{
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
-                                .setSender(username.get())
                                 .setType(MessageType.CHAT)
                                 .setContent(input)
                                 .build()

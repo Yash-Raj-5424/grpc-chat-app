@@ -22,13 +22,23 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
             @Override
             public void onNext(ChatMessage message){
+                if (username == null && message.getType() != MessageType.JOIN){
+                    sendSystem(responseObserver, "Join first before sending messages");
+                    return;
+                }
                 switch (message.getType()){
-                    case JOIN -> username = handleJoin(message, responseObserver);
+                    case JOIN -> {
+                        if (username != null){  // already joined on this stream
+                            sendSystem(responseObserver, "You are already joined as '" + username + "'");
+                            return;
+                        }
+                        username = handleJoin(message, responseObserver);
+                    }
                     case ROOM_JOIN -> handleRoomJoin(message, username, responseObserver);
                     case ROOM_LEAVE -> handleRoomLeave(message, username, responseObserver);
-                    case ROOM_CHAT -> handleRoomChat(message, responseObserver);
-                    case PRIVATE -> handlePrivateChat(message, responseObserver);
-                    case CHAT -> handleGlobalChat(message);
+                    case ROOM_CHAT -> handleRoomChat(message, username, responseObserver);
+                    case PRIVATE -> handlePrivateChat(message, username, responseObserver);
+                    case CHAT -> handleGlobalChat(message, username, responseObserver);
                     default -> sendSystem(responseObserver, "Unknown message type: "
                             + message.getType());
                 }
@@ -130,37 +140,57 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
 
     private void handleRoomChat(
             ChatMessage message,
+            String username,
             StreamObserver<ChatMessage> responseObserver
     ){
         String room = message.getRoom();
-        Set<String> roomMembers = rooms.get(room);
 
-        if (roomMembers == null) {
-            sendSystem(responseObserver, "Room '" + room + "' does not exist");
+        // check membership on server-side
+        Set<String> joinedRooms = userRooms.get(username);
+        Set<String> roomMembers = rooms.get(room);
+        if (joinedRooms == null || !joinedRooms.contains(room) || roomMembers == null){
+            sendSystem(responseObserver, "You are not in room: '" + room + "'");
             return;
         }
 
-        System.out.println("[ROOM: " + room + "] " + message.getSender() + ": "
-                + message.getContent());
+        System.out.println("[ROOM: " + room + "] " + username + ": " + message.getContent());
+
+        ChatMessage roomMessage = ChatMessage.newBuilder()
+                .setSender(username)
+                .setRoom(room)
+                .setType(MessageType.ROOM_CHAT)
+                .setContent(message.getContent())
+                .build();
 
         for (String member : roomMembers){
             StreamObserver<ChatMessage> observer = clients.get(member);
             if (observer != null) {
-                send(member, observer, message);
+                send(member, observer, roomMessage);
             }
         }
     }
 
-    private void handleGlobalChat(ChatMessage message){  // broadcast messaging
-        System.out.println(message.getSender() + ": " + message.getContent());
+    private void handleGlobalChat(
+            ChatMessage message,
+            String username,
+            StreamObserver<ChatMessage> responseObserver
+    ){
+        System.out.println(username + ": " + message.getContent());
+
+        ChatMessage globalMessage = ChatMessage.newBuilder()
+                .setSender(username)
+                .setType(MessageType.CHAT)
+                .setContent(message.getContent())
+                .build();
 
         for (var entry : clients.entrySet()){
-            send(entry.getKey(), entry.getValue(), message);
+            send(entry.getKey(), entry.getValue(), globalMessage);
         }
     }
 
     private void handlePrivateChat(
             ChatMessage message,
+            String username,
             StreamObserver<ChatMessage> responseObserver
     ){
         String recipient = message.getRecipient();
@@ -171,11 +201,17 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             return;
         }
 
-        System.out.println("[PRIVATE to " + recipient + "] " + message.getSender() + ": "
-                + message.getContent());
+        System.out.println("[PRIVATE to " + recipient + "] " + username + ": " + message.getContent());
 
-        send(recipient, recipientObserver, message);  // private msg to the recipient
-        responseObserver.onNext(message);   // confirmation to the sender
+        ChatMessage privateMessage = ChatMessage.newBuilder()
+                .setSender(username)
+                .setRecipient(recipient)
+                .setType(MessageType.PRIVATE)
+                .setContent(message.getContent())
+                .build();
+
+        send(recipient, recipientObserver, privateMessage);  // private msg to the recipient
+        responseObserver.onNext(privateMessage);   // confirmation to the sender
     }
 
     private void send(
