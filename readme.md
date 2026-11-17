@@ -3,6 +3,7 @@
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![gRPC](https://img.shields.io/badge/gRPC-Bidirectional%20Streaming-blue)
 ![Protocol Buffers](https://img.shields.io/badge/Protocol-Buffers-green)
+![SQLite](https://img.shields.io/badge/SQLite-Message%20Persistence-003B57)
 ![Maven](https://img.shields.io/badge/Build-Maven-red)
 
 A terminal-based chat application built to learn **gRPC from first principles**.
@@ -245,6 +246,28 @@ A one-off override is also supported:
 ```
 
 without changing the active room.
+
+---
+
+# Message History (Persistence)
+
+Every global, room, and private message is saved to an embedded SQLite database (`chat.db`, created automatically on first run), so history survives server restarts.
+
+History is requested on demand with the `/history` command instead of being replayed on every join:
+
+```
+/history            - last 50 global messages
+/history backend    - last 50 messages of a room you are a member of
+/history @josh      - your private history with josh (both directions)
+```
+
+Notes:
+
+- History responses reuse the normal message formats, wrapped between two `System` markers
+- Room history requires server-side membership — the same rule that protects room messaging
+- Private history is scoped by the requesting user's server-verified session username, so only the two participants can ever retrieve their conversation
+- Persistence is best-effort: if the database fails, the chat keeps working and only history is lost
+- `chat.db` is git-ignored and can be deleted at any time; it is recreated automatically
 
 ---
 
