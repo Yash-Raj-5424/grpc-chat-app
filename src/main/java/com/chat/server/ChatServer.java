@@ -9,14 +9,16 @@ import java.util.concurrent.TimeUnit;
 
 public class ChatServer {
 
+    private static final int SERVER_PORT = 9090;
+
     public static void main(String[] args) throws IOException, InterruptedException {
 
-        Server server = ServerBuilder.forPort(9090)
+        Server server = ServerBuilder.forPort(SERVER_PORT)
                 .addService(new ChatServiceImpl())
                 .build();
 
         server.start();
-        System.out.println("gRPC server started on port 9090");
+        System.out.println("gRPC server started on port " + SERVER_PORT);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Shutting down server...");

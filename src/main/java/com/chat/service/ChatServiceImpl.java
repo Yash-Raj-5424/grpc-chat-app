@@ -70,7 +70,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
     ){
         String username = message.getSender();
 
-        if(username == null || username.isEmpty()){
+        if(username == null || username.isBlank()){
             sendSystem(responseObserver, "Username cannot be empty");
             responseObserver.onCompleted();
             return null;

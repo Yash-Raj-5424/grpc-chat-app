@@ -14,10 +14,21 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class ChatClient {
 
+    private static final String HOST = "localhost";
+    private static final int PORT = 9090;
+    private static final String EXIT_CMD = "exit";
+    private static final String HELP_CMD = "/help";
+    private static final String JOIN_CMD = "/join ";
+    private static final String SWITCH_CMD = "/switch ";
+    private static final String CURRENT_CMD = "/current";
+    private static final String LEAVE_CMD = "/leave ";
+    private static final String PRIVATE_PREFIX = "@";
+    private static final String ROOM_PREFIX = "#";
+
     public static void main(String[] args) throws InterruptedException {
 
         ManagedChannel channel = ManagedChannelBuilder
-                .forAddress("localhost", 9090)
+                .forAddress(HOST, PORT)
                 .usePlaintext()
                 .build();
 
@@ -77,6 +88,7 @@ public class ChatClient {
         Scanner scanner = new Scanner(System.in);
         System.out.println("Enter username:");
         username.set(scanner.nextLine());
+        System.out.println("Type /help to see the available commands.");
 
         requestObserver.onNext(
                 ChatMessage.newBuilder()
@@ -88,14 +100,21 @@ public class ChatClient {
 
         while(chatActive.get()){
             String input = scanner.nextLine();
-            if("exit".equalsIgnoreCase(input)){
+
+            if(EXIT_CMD.equalsIgnoreCase(input)){
                 requestObserver.onCompleted();
                 break;
             }
 
+            // show all available commands
+            if(HELP_CMD.equalsIgnoreCase(input)){
+                printHelp();
+                continue;
+            }
+
             // join room
-            if(input.startsWith("/join ")){
-                String roomName = input.substring(6).trim();
+            if(input.startsWith(JOIN_CMD)){
+                String roomName = input.substring(JOIN_CMD.length()).trim();
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
                                 .setRoom(roomName)
@@ -107,8 +126,8 @@ public class ChatClient {
             }
 
             // switch room
-            if(input.startsWith("/switch ")){
-                String roomName = input.substring(8).trim();
+            if(input.startsWith(SWITCH_CMD)){
+                String roomName = input.substring(SWITCH_CMD.length()).trim();
 
                 if(!myRooms.contains(roomName)){
                     System.out.println("You are not a member of room: " + roomName);
@@ -121,15 +140,15 @@ public class ChatClient {
             }
 
             // current room
-            if(input.equals("/current")){
+            if(input.equalsIgnoreCase(CURRENT_CMD)){
                 System.out.println("Active room: "
                         + (activeRoom.get() != null ? activeRoom.get() : "None"));
                 continue;
             }
 
             // leave room
-            if(input.startsWith("/leave ")){
-                String roomName = input.substring(7).trim();
+            if(input.startsWith(LEAVE_CMD)){
+                String roomName = input.substring(LEAVE_CMD.length()).trim();
                 requestObserver.onNext(
                         ChatMessage.newBuilder()
                                 .setRoom(roomName)
@@ -144,14 +163,14 @@ public class ChatClient {
             }
 
             // private message
-            if(input.startsWith("@")){
+            if(input.startsWith(PRIVATE_PREFIX)){
                 int firstSpace = input.indexOf(' ');
                 if(firstSpace == -1){
                     System.out.println("Invalid private message format. Use: @username message");
                     continue;
                 }
 
-                String recipient = input.substring(1, firstSpace);
+                String recipient = input.substring(PRIVATE_PREFIX.length(), firstSpace);
                 String content = input.substring(firstSpace + 1);
 
                 requestObserver.onNext(
@@ -165,14 +184,14 @@ public class ChatClient {
             }
 
             // room message
-            if(input.startsWith("#")){
+            if(input.startsWith(ROOM_PREFIX)){
                 int firstSpace = input.indexOf(' ');
                 if(firstSpace == -1){
                     System.out.println("Invalid room message format. Use: #roomname message");
                     continue;
                 }
 
-                String roomName = input.substring(1, firstSpace);
+                String roomName = input.substring(ROOM_PREFIX.length(), firstSpace);
                 String content = input.substring(firstSpace + 1);
 
                 if(!myRooms.contains(roomName)){
@@ -212,5 +231,19 @@ public class ChatClient {
 
         latch.await(); //wait until the response has arrived then shutdown
         channel.shutdown();
+    }
+
+    private static void printHelp(){
+        System.out.println("""
+                Available commands:
+                  /join <room>      - join a room
+                  /switch <room>    - switch to a room you joined
+                  /current          - show your active room
+                  /leave <room>     - leave a room
+                  @<user> <msg>     - private message a user
+                  #<room> <msg>     - message a specific room
+                  /help             - show this help
+                  exit              - leave the chat
+                """);
     }
 }
