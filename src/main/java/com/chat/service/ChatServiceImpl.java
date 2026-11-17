@@ -47,7 +47,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             @Override
             public void onError(Throwable throwable){
                 if (username != null) {
-                    clients.remove(username);
+                    removeClient(username);
                     System.out.println(username + " disconnected: " + throwable.getMessage());
                 }
             }
@@ -55,11 +55,10 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             @Override
             public void onCompleted(){
                 if (username != null){
-                    leaveAllRooms(username);
-                    clients.remove(username);
+                    removeClient(username);
                     System.out.println(username + " left");
+                    broadcastLeaveNotification(username);
                 }
-                broadcastLeaveNotification(username);
                 responseObserver.onCompleted();
             }
         };
@@ -70,6 +69,12 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             StreamObserver<ChatMessage> responseObserver
     ){
         String username = message.getSender();
+
+        if(username == null || username.isEmpty()){
+            sendSystem(responseObserver, "Username cannot be empty");
+            responseObserver.onCompleted();
+            return null;
+        }
 
         StreamObserver<ChatMessage> existing = clients.putIfAbsent(username, responseObserver);
         if (existing != null){   // prevent duplicate usernames
@@ -222,8 +227,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
         try {
             observer.onNext(message);
         } catch (Exception e) {
-            clients.remove(username);
-            userRooms.remove(username);
+            removeClient(username);
             System.out.println(username + " dropped: " + e.getMessage());
         }
     }
@@ -286,5 +290,10 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                 userRooms.remove(username);
             }
         }
+    }
+
+    private void removeClient(String username){
+        leaveAllRooms(username);
+        clients.remove(username);
     }
 }
