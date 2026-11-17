@@ -40,4 +40,9 @@ build/
 ### Practice (learning examples) ###
 practice/
 
+### SQLite chat database ###
+chat.db
+chat.db-journal
+*.db
+
 decisions.md

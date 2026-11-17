@@ -18,6 +18,7 @@ public class ChatClient {
     private static final int PORT = 9090;
     private static final String EXIT_CMD = "exit";
     private static final String HELP_CMD = "/help";
+    private static final String HISTORY_CMD = "/history";
     private static final String JOIN_CMD = "/join ";
     private static final String SWITCH_CMD = "/switch ";
     private static final String CURRENT_CMD = "/current";
@@ -109,6 +110,34 @@ public class ChatClient {
             // show all available commands
             if(HELP_CMD.equalsIgnoreCase(input)){
                 printHelp();
+                continue;
+            }
+
+            // chat history - /history (global), /history <room>, /history @<user>
+            if(HISTORY_CMD.equalsIgnoreCase(input) || input.startsWith(HISTORY_CMD + " ")){
+                String arg = input.substring(HISTORY_CMD.length()).trim();
+
+                ChatMessage.Builder historyRequest = ChatMessage.newBuilder()
+                        .setType(MessageType.HISTORY);
+
+                if(arg.startsWith(PRIVATE_PREFIX)){   // private history with one person
+                    String peer = arg.substring(PRIVATE_PREFIX.length()).trim();
+                    if(peer.isEmpty() || peer.contains(" ")){
+                        System.out.println("Invalid private history format. Use: /history @<user>");
+                        continue;
+                    }
+                    historyRequest.setRecipient(peer);
+                }
+                else if(!arg.isEmpty()){   // room history
+                    if(arg.contains(" ")){
+                        System.out.println("Invalid room history format. Use: /history <room>");
+                        continue;
+                    }
+                    historyRequest.setRoom(arg);
+                }
+                // else - global history
+
+                requestObserver.onNext(historyRequest.build());
                 continue;
             }
 
@@ -242,6 +271,9 @@ public class ChatClient {
                   /leave <room>     - leave a room
                   @<user> <msg>     - private message a user
                   #<room> <msg>     - message a specific room
+                  /history          - last 50 global messages
+                  /history <room>   - last 50 messages of a room you are in
+                  /history @<user>  - your private history with that user
                   /help             - show this help
                   exit              - leave the chat
                 """);

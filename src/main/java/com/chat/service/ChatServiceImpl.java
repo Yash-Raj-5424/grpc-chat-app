@@ -4,10 +4,13 @@ import com.chat.grpc.*;
 import com.chat.storage.ChatDatabase;
 import io.grpc.stub.StreamObserver;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
+
+    private static final int HISTORY_LIMIT = 50;
 
     private final ConcurrentHashMap<String, Set<String>> rooms = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> userRooms = new ConcurrentHashMap<>();
@@ -41,6 +44,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                     case ROOM_CHAT -> handleRoomChat(message, username, responseObserver);
                     case PRIVATE -> handlePrivateChat(message, username, responseObserver);
                     case CHAT -> handleGlobalChat(message, username, responseObserver);
+                    case HISTORY -> handleHistory(message, username, responseObserver);
                     default -> sendSystem(responseObserver, "Unknown message type: "
                             + message.getType());
                 }
@@ -199,6 +203,47 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
         }
     }
 
+    private void handleHistory(
+            ChatMessage message,
+            String username,
+            StreamObserver<ChatMessage> responseObserver
+    ){
+        String room = message.getRoom();
+        String recipient = message.getRecipient();
+
+        List<ChatMessage> history;
+
+        if (!room.isEmpty()){
+            Set<String> joinedRooms = userRooms.get(username);
+            if (joinedRooms == null || !joinedRooms.contains(room)){
+                sendSystem(responseObserver, "You are not in room: '" + room + "'");
+                return;
+            }
+            history = db.recentRoom(room, HISTORY_LIMIT);
+            sendHistory(responseObserver, "Room '" + room + "' history", history);
+        }
+        else if (!recipient.isEmpty()){
+            history = db.privateHistory(username, recipient, HISTORY_LIMIT);
+            sendHistory(responseObserver, "Private history with '" + recipient + "'", history);
+        }
+        else{
+            history = db.recentGlobal(HISTORY_LIMIT);
+            sendHistory(responseObserver, "Global chat history", history);
+        }
+    }
+
+    private void sendHistory(
+            StreamObserver<ChatMessage> responseObserver,
+            String label,
+            List<ChatMessage> messages
+    ){
+        sendSystem(responseObserver, "----- " + label + " (" + messages.size() + " messages) -----");
+        for (ChatMessage stored : messages){
+            responseObserver.onNext(stored);
+        }
+        sendSystem(responseObserver, "----- end of history -----");
+    }
+
     private void handlePrivateChat(
             ChatMessage message,
             String username,
@@ -212,7 +257,8 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
             return;
         }
 
-        System.out.println("[PRIVATE to " + recipient + "] " + username + ": " + message.getContent());
+        System.out.println("[PRIVATE to " + recipient + "] " + username + ": " +
+                message.getContent());
 
         ChatMessage privateMessage = ChatMessage.newBuilder()
                 .setSender(username)

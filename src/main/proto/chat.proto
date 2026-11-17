@@ -52,4 +52,6 @@ enum MessageType{
     ROOM_JOIN = 5;
     ROOM_LEAVE = 6;
     ROOM_CHAT = 7;
+
+    HISTORY = 8;
 }
