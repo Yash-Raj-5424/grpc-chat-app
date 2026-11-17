@@ -1,6 +1,7 @@
 package com.chat.service;
 
 import com.chat.grpc.*;
+import com.chat.storage.ChatDatabase;
 import io.grpc.stub.StreamObserver;
 
 import java.util.Set;
@@ -12,6 +13,7 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
     private final ConcurrentHashMap<String, Set<String>> userRooms = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, StreamObserver<ChatMessage>> clients =
             new ConcurrentHashMap<>();
+    private final ChatDatabase db = new ChatDatabase();
 
     @Override
     public StreamObserver<ChatMessage> chat(StreamObserver<ChatMessage> responseObserver){
@@ -167,6 +169,8 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                 .setContent(message.getContent())
                 .build();
 
+        db.save(roomMessage);  // persist before delivering
+
         for (String member : roomMembers){
             StreamObserver<ChatMessage> observer = clients.get(member);
             if (observer != null) {
@@ -187,6 +191,8 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                 .setType(MessageType.CHAT)
                 .setContent(message.getContent())
                 .build();
+
+        db.save(globalMessage);  // persist before delivering
 
         for (var entry : clients.entrySet()){
             send(entry.getKey(), entry.getValue(), globalMessage);
@@ -214,6 +220,8 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                 .setType(MessageType.PRIVATE)
                 .setContent(message.getContent())
                 .build();
+
+        db.save(privateMessage);  // persist before delivering
 
         send(recipient, recipientObserver, privateMessage);  // private msg to the recipient
         responseObserver.onNext(privateMessage);   // confirmation to the sender
